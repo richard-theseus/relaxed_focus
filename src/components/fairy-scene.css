@@ -1,0 +1,18 @@
+.fairy-scene-root{ position: fixed; inset: 0; overflow: hidden; z-index: 0 }
+.background-layer{
+  position:absolute; inset:0; background: radial-gradient(ellipse at top left, #0b2133 0%, #04202b 60%, #07141b 100%);
+  background-image: url('/src/assets/background-night-1.jpg');
+  background-size: cover; background-position: center; filter: contrast(1.05) saturate(0.9);
+}
+.sprite{
+  position: absolute; top: 10%; left: 20%; pointer-events: auto; z-index: 2; user-select:none; will-change: transform, opacity;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35));
+}
+.sprite:nth-child(2){ top: 25%; left: 70% }
+.sprite:nth-child(3){ top: 55%; left: 10% }
+.sprite:nth-child(4){ top: 60%; left: 80% }
+
+/* Responsive tweak */
+@media (max-width: 800px){
+  .sprite{ display:block; opacity:0.95 }
+}

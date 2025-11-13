@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import FairyScene from './FairyScene'
-import SoundGenerator from './SoundGenerator'
-import ControlsPanel from './ControlsPanel'
+import FairyScene from './components/FairyScene'
+import SoundGenerator from './components/SoundGenerator'
+import ControlsPanel from './components/ControlsPanel'
 
 export default function App(){
   const [audioApi, setAudioApi] = useState(null)
@@ -25,3 +25,4 @@ export default function App(){
   )
 
 }
+

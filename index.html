@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FocusForge — Fairytale Enhanced (Import & Block Editor)</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cinzel&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- SheetJS for Excel parsing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{--bg1:#041025;--bg2:#071834;--accent:#8b5cf6;--muted:#b7c4d9}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#eef6ff;overflow:hidden}
+  /* background image */
+  .back{position:fixed;inset:0;background:url('https://images.unsplash.com/photo-1444044205806-38f3ed106c10?ixlib=rb-4.0.3&auto=format&fit=crop&w=1950&q=80') center/cover no-repeat;filter:brightness(.55) saturate(.95);z-index:0}
+  .app{position:relative;z-index:3;display:grid;grid-template-columns:320px 1fr 420px;gap:20px;padding:24px;height:100vh;box-sizing:border-box}
+  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:14px;backdrop-filter:blur(8px);box-shadow:0 14px 46px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+  header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+  .blocks{display:flex;flex-direction:column;gap:8px;max-height:66vh;overflow:auto}
+  .block{padding:10px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));display:flex;justify-content:space-between;align-items:center}
+
+  /* central quote */
+  .quote-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px;border-radius:12px}
+  .quote-wrap{display:flex;gap:14px;align-items:center}
+  .philo{width:84px;height:84px;border-radius:999px;border:3px solid rgba(255,255,255,0.06);overflow:hidden}
+  .quote-text{font-family:'Great Vibes',cursive;font-size:36px;line-height:1.05;text-align:center;color:#fff;text-shadow:0 0 22px rgba(139,92,246,0.7)}
+  .quote-source{font-size:13px;color:var(--muted)}
+
+  /* Import preview table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
+  th{color:var(--muted);font-weight:600}
+
+  /* Help / Modals */
+  .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:88%;max-width:1100px;background:rgba(6,10,22,0.98);padding:20px;border-radius:12px;z-index:60;box-shadow:0 18px 60px rgba(2,6,23,0.85);display:none;color:#eaf3ff}
+  .modal pre{background:#050a12;padding:12px;border-radius:8px;overflow:auto}
+
+  /* creatures */
+  .creature{position:fixed;width:110px;height:auto;z-index:2;pointer-events:none;filter:drop-shadow(0 8px 18px rgba(0,0,0,.6))}
+  #fairy{left:8%;bottom:8%;transform:translateY(0);animation:flyA 22s linear infinite}
+  #wizard{right:10%;bottom:14%;animation:flyB 28s linear infinite}
+  @keyframes flyA{0%{transform:translate(0,0) rotate(-3deg)}25%{transform:translate(25vw,-6vh) rotate(6deg)}50%{transform:translate(60vw,0) rotate(-6deg)}75%{transform:translate(110vw,-4vh) rotate(3deg)}100%{transform:translate(160vw,0) rotate(-3deg)}}
+  @keyframes flyB{0%{transform:translate(0,0) rotate(0deg)}30%{transform:translate(-30vw,-8vh) rotate(-4deg)}60%{transform:translate(-80vw,4vh) rotate(4deg)}100%{transform:translate(-120vw,0) rotate(0deg)}}
+
+  footer{grid-column:1/-1;padding:10px 18px;color:var(--muted)}
+  .small{font-size:13px;color:var(--muted)}
+  @media (max-width:1100px){.app{grid-template-columns:1fr;overflow:auto;height:100%}}
+</style>
+</head>
+<body>
+  <div class="back" aria-hidden></div>
+
+  <!-- decorative sprites (royalty-free links embedded) -->
+  <img id="fairy" class="creature" src="https://cdn.pixabay.com/photo/2016/12/26/17/28/fairy-1938006_1280.png" alt="fairy sprite"/>
+  <img id="wizard" class="creature" src="https://opengameart.org/sites/default/files/styles/medium/public/ogre_mage.png" alt="wizard sprite"/>
+
+  <div class="app" role="application">
+    <header class="panel">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="font-weight:800;font-size:20px">FocusForge — Fairytale</div>
+        <div class="small">Enchanted workspace • import and edit blocks</div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="small">Today: <strong id="todayMins">0</strong> min</div>
+        <div class="small">Streak: <strong id="streak">0</strong></div>
+        <button id="helpBtn" class="secondary" style="background:transparent;border:1px solid rgba(255,255,255,0.05);padding:6px 10px;border-radius:8px">Help</button>
+      </div>
+    </header>
+
+    <aside class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700">Blocks</div>
+        <div style="display:flex;gap:8px"><button id="importExcel" class="secondary">Import Excel</button><button id="addBlock" class="secondary">+Add</button></div>
+      </div>
+      <div class="blocks" id="blocksList">Loading…</div>
+    </aside>
+
+    <main class="panel" style="display:flex;flex-direction:column;gap:14px">
+      <div class="quote-card">
+        <div class="quote-wrap">
+          <div class="philo"><img id="philoAvatar" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Ancient_Greek_philosopher%2C_unknown_artist%2C_Dutch_Golden_Age.png/120px-Ancient_Greek_philosopher%2C_unknown_artist%2C_Dutch_Golden_Age.png" alt="philosopher" style="width:100%;height:100%;object-fit:cover;opacity:.95;" /></div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <div id="quoteText" class="quote-text">A man's true delight is to do the things he was made for.</div>
+            <div id="quoteSource" class="quote-source">— Marcus Tullius Cicero</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <label class="small">Auto-cycle</label>
+          <input id="cycleToggle" type="checkbox" checked />
+          <label class="small">Interval (s)</label>
+          <input id="cycleInterval" type="number" value="12" style="width:72px;padding:6px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.06)"/>
+          <button id="nextQuote" class="secondary">Next</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:18px;align-items:center;justify-content:center;flex-direction:column">
+        <div style="display:flex;gap:12px;align-items:center"><div class="small">Active block:</div><div id="activeLabel" style="font-weight:700">Idle</div></div>
+        <div style="width:320px;height:320px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--accent) 0 30%, rgba(255,255,255,0.02) 30%);box-shadow:0 14px 40px rgba(0,0,0,0.6)">
+          <div style="text-align:center"><div id="timeDisplay" style="font-size:44px;font-weight:700">00:00</div><div id="subLabel" class="small">Stopped</div></div>
+        </div>
+        <div style="display:flex;gap:10px"><button id="startBtn">Start</button><button id="pauseBtn" class="secondary">Pause</button><button id="skipBtn" class="secondary">Skip</button>
+          <select id="preset" class="secondary"><option value="25">Pomodoro (25m)</option><option value="50">Deep Work (50m)</option><option value="15">Short Focus (15m)</option><option value="5">Quick Break (5m)</option></select>
+        </div>
+      </div>
+
+    </main>
+
+    <aside class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">Audio & Ambience</div><div class="small">Default + Upload</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+        <div style="display:flex;gap:8px;align-items:center"><button id="playDefault" class="secondary">Play Default Ambience</button><button id="stopDefault" class="secondary">Stop</button></div>
+        <div><label class="small">Or upload your own track</label><input id="musicFile" type="file" accept="audio/*"/></div>
+        <div id="musicControls" style="display:none;align-items:center;gap:8px;margin-top:6px"><div id="musicLabel" class="small">User track</div><input id="musicVol" type="range" min="0" max="1" step="0.01" value="0.55"/></div>
+        <div style="display:flex;gap:10px;margin-top:6px"><label class="small">Magic tinkles</label><input id="tinkleToggle" type="checkbox" checked/></div>
+        <div style="margin-top:8px"><button id="exportAll" class="secondary">Export All Blocks JSON</button></div>
+      </div>
+    </aside>
+
+    <footer>Blocks are editable after import. Use <strong>Import Excel</strong> to parse rows, preview them here, click a row to convert to a block, edit fields, then add to the left-hand Blocks list. You can export any block as JSON.</footer>
+  </div>
+
+  <!-- Import preview / editor modal -->
+  <div id="previewModal" class="modal" role="dialog" aria-modal="true">
+    <h3 style="margin-top:0">Parsed Rows — Preview & Convert</h3>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div><input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none"/></div>
+      <div style="flex:1"><div id="parsedCount" class="small">No file loaded</div></div>
+      <div><button id="closePreview" class="secondary">Close</button></div>
+    </div>
+    <div style="max-height:55vh;overflow:auto"><table id="rowsTable"><thead><tr><th>#</th><th>Preview</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+  </div>
+
+<script>
+// ------------------ Utilities ------------------
+function escapeHtml(s){ return String(s||'').replace(/[&<>\"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function downloadJSON(obj, name){ const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); }
+
+// ------------------ App state ------------------
+const STORAGE_KEY = 'focusforge_fairytale_blocks_v3';
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); state.blocks = state.blocks || []; state.stats = state.stats || {todayMinutes:0,streak:0};
+
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+// render left blocks
+const blocksList = document.getElementById('blocksList');
+function renderBlocks(){ blocksList.innerHTML=''; if(state.blocks.length===0) blocksList.innerHTML='<div class="small">No blocks yet — import or add one.</div>';
+  state.blocks.forEach((b,idx)=>{
+    const el=document.createElement('div'); el.className='block'; el.innerHTML = `<div><div style="font-weight:700">${escapeHtml(b.label)}</div><div class="small">${escapeHtml(b.type)} • ${escapeHtml(String(b.dur_minutes||b.duration||25))}m</div></div><div style="display:flex;gap:8px"><button class="secondary" data-idx="${idx}" onclick="startFromBlock(${idx})">Start</button><button class="secondary" data-idx="${idx}" onclick="exportBlock(${idx})">Export</button><button class="secondary" data-idx="${idx}" onclick="removeBlock(${idx})">✕</button></div>`;
+    blocksList.appendChild(el);
+  }); }
+
+window.startFromBlock = function(i){ const b=state.blocks[i]; if(!b) return; document.getElementById('activeLabel').textContent=b.label; startTimer((b.dur_minutes||b.duration||25)*60); }
+window.exportBlock = function(i){ const b=state.blocks[i]; downloadJSON(b, `block_${i+1}.json`); }
+window.removeBlock = function(i){ if(!confirm('Remove this block?')) return; state.blocks.splice(i,1); saveState(); renderBlocks(); }
+
+renderBlocks();
+
+// ------------------ Timer ------------------
+let timer={running:false,end:0,remaining:0,interval:null,duration:0};
+const timeDisplay=document.getElementById('timeDisplay'); const subLabel=document.getElementById('subLabel');
+function formatTime(s){ if(s<0) s=0; const m=Math.floor(s/60); const sec=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); }
+function updateDisplay(){ timeDisplay.textContent=formatTime(Math.ceil(timer.remaining)); subLabel.textContent=timer.running?'Running':'Stopped'; }
+function tick(){ const now=Date.now(); timer.remaining=Math.max(0,(timer.end-now)/1000); if(timer.remaining<=0){ stopTimer(false); onTimerEnd(); } else updateDisplay(); }
+function startTimer(seconds){ timer.duration=seconds; timer.end=Date.now()+seconds*1000; timer.running=true; timer.remaining=seconds; updateDisplay(); if(timer.interval) clearInterval(timer.interval); timer.interval=setInterval(tick,500); }
+function pauseTimer(){ if(!timer.running) return; timer.running=false; clearInterval(timer.interval); timer.duration=timer.remaining; }
+function stopTimer(andClear=true){ timer.running=false; clearInterval(timer.interval); if(andClear){ timer.remaining=0; updateDisplay(); } }
+function onTimerEnd(){ const mins=Math.round(timer.duration/60); state.stats.todayMinutes=(state.stats.todayMinutes||0)+mins; document.getElementById('todayMins').textContent=state.stats.todayMinutes; playTinkle(); saveState(); }
+
+document.getElementById('startBtn').onclick = ()=>{ const seconds=Number(document.getElementById('preset').value)*60; document.getElementById('activeLabel').textContent=document.getElementById('preset').options[document.getElementById('preset').selectedIndex].text; startTimer(seconds); };
+document.getElementById('pauseBtn').onclick = ()=> pauseTimer(); document.getElementById('skipBtn').onclick = ()=>{ stopTimer(); alert('Skipped'); };
+
+// ------------------ Quotes ------------------
+const QUOTES = [
+  {text:'The best way to find yourself is to lose yourself in the service of others.',source:'Mahatma Gandhi'},
+  {text:'Act as if what you do makes a difference. It does.',source:'William James'},
+  {text:'Only a life lived for others is a life worthwhile.',source:'Albert Einstein'},
+  {text:'What you do makes a difference; decide what kind of difference to make.',source:'Jane Goodall'},
+  {text:'Service to others is the rent you pay for your room here on earth.',source:'Muhammad Ali'},
+  {text:'A man’s true delight is to do the things he was made for.',source:'Marcus Tullius Cicero'},
+  {text:'Happiness comes from your own actions.',source:'Dalai Lama'},
+  {text:'The true measure of a man is how he treats someone who can do him no good.',source:'Samuel Johnson'},
+  {text:'The good you do today may be forgotten tomorrow. Do good anyway.',source:'Mother Teresa (paraphrase)'}
+];
+let qIndex=Math.floor(Math.random()*QUOTES.length);
+function showQuote(i){ const q=QUOTES[i%QUOTES.length]; document.getElementById('quoteText').textContent=q.text; document.getElementById('quoteSource').textContent='— '+(q.source||''); qIndex=i%QUOTES.length; }
+function nextQuote(){ showQuote(qIndex+1); }
+document.getElementById('nextQuote').onclick = nextQuote; const cycleToggle=document.getElementById('cycleToggle'); const cycleInterval=document.getElementById('cycleInterval'); let quoteTimer=null; function startQuoteCycle(){ stopQuoteCycle(); if(!cycleToggle.checked) return; const s=Math.max(5,Number(cycleInterval.value)||12); quoteTimer=setInterval(nextQuote,s*1000); }
+function stopQuoteCycle(){ if(quoteTimer){ clearInterval(quoteTimer); quoteTimer=null; } }
+cycleToggle.onchange=startQuoteCycle; cycleInterval.onchange=startQuoteCycle; showQuote(qIndex); startQuoteCycle();
+
+// ------------------ Ambience: default soundtrack loader & upload ------------------
+const playDefault=document.getElementById('playDefault'); const stopDefault=document.getElementById('stopDefault'); const musicFile=document.getElementById('musicFile'); const musicControls=document.getElementById('musicControls');
+const musicLabel=document.getElementById('musicLabel'); const musicVol=document.getElementById('musicVol');
+const AudioContext = window.AudioContext||window.webkitAudioContext; const aCtx=new AudioContext(); const master=aCtx.createGain(); master.gain.value=0.9; master.connect(aCtx.destination); let musicSrc=null; let musicNode=null; let musicGain=aCtx.createGain(); musicGain.gain.value=0.55; musicGain.connect(master);
+
+// a royalty-free track (example from OpenGameArt) — replace if you prefer different track. This is a small ambient loop URL (OGG)
+const DEFAULT_TRACK_URL = 'https://opengameart.org/sites/default/files/Peaceful_Ambience.ogg';
+
+async function loadAndPlay(url){ if(musicSrc){ try{ musicSrc.pause(); }catch{} } musicSrc=new Audio(url); musicSrc.loop=true; musicSrc.crossOrigin='anonymous'; musicSrc.addEventListener('canplay', async ()=>{ if(aCtx.state==='suspended') await aCtx.resume(); if(musicNode) try{ musicNode.disconnect(); }catch{} musicNode=aCtx.createMediaElementSource(musicSrc); musicNode.connect(musicGain); musicSrc.play(); musicControls.style.display='flex'; musicLabel.textContent = url.split('/').pop(); }); }
+
+playDefault.onclick = ()=>{ if(!DEFAULT_TRACK_URL) return alert('No embedded default track URL set. You may upload your own or paste a URL in the console.'); loadAndPlay(DEFAULT_TRACK_URL); };
+stopDefault.onclick = ()=>{ if(musicSrc){ musicSrc.pause(); musicSrc.currentTime=0; } };
+
+musicFile.onchange = (e)=>{ const f=e.target.files[0]; if(!f) return; const url=URL.createObjectURL(f); loadAndPlay(url); };
+musicVol.oninput = (e)=>{ musicGain.gain.value = Number(e.target.value); };
+
+// ------------------ Better tinkling: organic multi-oscillator chime + clip fallback ------------------
+let tinkleOn=true; document.getElementById('tinkleToggle').onchange = (e)=> tinkleOn=e.target.checked;
+function organicTinkle(){ if(!tinkleOn) return; const now=aCtx.currentTime; const freqs=[880,1100,1320]; // chord-ish
+  const gain=aCtx.createGain(); gain.connect(master); gain.gain.value=0.0001; freqs.forEach((f,i)=>{ const o=aCtx.createOscillator(); o.type='sine'; o.frequency.value = f * (0.95 + Math.random()*0.1); const g=aCtx.createGain(); o.connect(g); g.connect(gain); const env=0.02+Math.random()*0.06; g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.06 + Math.random()*0.06, now+env); g.gain.exponentialRampToValueAtTime(0.0001, now+env+0.9+Math.random()*1.2); o.start(now + i*0.02); o.stop(now + env + 1.6 + Math.random()*1.6); }); }
+// schedule random tinkling
+setInterval(()=>{ if(Math.random()>0.5) organicTinkle(); }, 5000 + Math.random()*5000);
+
+// ------------------ Excel parsing (SheetJS) -> show preview and convert rows to blocks ------------------
+const previewModal=document.getElementById('previewModal'); const rowsTable=document.querySelector('#rowsTable tbody'); const parsedCount=document.getElementById('parsedCount'); const fileInput=document.getElementById('fileInput'); const importExcelBtn=document.getElementById('importExcel');
+let lastParsedRows = [];
+
+importExcelBtn.onclick = ()=>{ fileInput.click(); };
+fileInput.onchange = (e)=>{ const f=e.target.files[0]; if(!f) return; const reader=new FileReader(); reader.onload = (ev)=>{ try{ const data=ev.target.result; const wb=XLSX.read(data,{type:'binary'}); const sheet=wb.SheetNames[0]; const ws=wb.Sheets[sheet]; const json=XLSX.utils.sheet_to_json(ws,{defval:''}); // array of row objects
+      lastParsedRows = json; showPreview(json, sheet); }catch(err){ console.error(err); alert('Failed to parse excel file.'); } }; reader.readAsBinaryString(f); };
+
+function showPreview(rows, sheetName='Sheet1'){ parsedCount.textContent = `${rows.length} rows parsed from ${sheetName}`; rowsTable.innerHTML=''; rows.forEach((r,idx)=>{
+  const tr=document.createElement('tr'); const preview = summarizeRow(r); tr.innerHTML = `<td>${idx+1}</td><td style="max-width:520px">${escapeHtml(preview)}</td><td><button data-idx="${idx}" class="secondary">Convert</button> <button data-idx="${idx}" class="secondary exportRow">Export JSON</button></td>`; rowsTable.appendChild(tr);
+}); // attach listeners
+  document.querySelectorAll('button[data-idx]').forEach(btn=>{ btn.onclick = ()=>{ const i=Number(btn.getAttribute('data-idx')); openRowEditor(i); }; });
+  document.querySelectorAll('.exportRow').forEach(btn=>{ btn.onclick = ()=>{ const i=Number(btn.getAttribute('data-idx')); downloadJSON({row:lastParsedRows[i]}, `parsed_row_${i+1}.json`); }; });
+  previewModal.style.display='block'; }
+
+function summarizeRow(row){ // join key:val pairs for preview (limit length)
+  const entries = Object.entries(row).map(([k,v])=>`${k}: ${v}`).slice(0,6); return entries.join(' • '); }
+
+function openRowEditor(index){ const row = lastParsedRows[index]; // normalize to block
+  const block = normalizeRowToBlock(row, index);
+  // build quick editor UI inside modal
+  const editorHtml = `
+    <div style="display:flex;gap:12px;margin-bottom:10px"><div style="flex:1"><label class="small">Label</label><input id="ed_label" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)" value="${escapeHtml(block.label)}"/></div>
+    <div style="width:140px"><label class="small">Type</label><input id="ed_type" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)" value="${escapeHtml(block.type)}"/></div></div>
+    <div style="display:flex;gap:12px;margin-bottom:10px"><div style="flex:1"><label class="small">Duration (minutes)</label><input id="ed_dur" type="number" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)" value="${escapeHtml(String(block.dur_minutes))}"/></div>
+    <div style="width:160px"><label class="small">Notes (optional)</label><input id="ed_notes" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)" value="${escapeHtml(block.notes||'')}"/></div></div>
+    <div style="display:flex;gap:8px"><button id="applyBlock" class="secondary">Add Block</button><button id="cancelEdit" class="secondary">Cancel</button><button id="exportBlockJson" class="secondary">Export JSON</button></div>
+  `;
+  // replace modal contents
+  const container = previewModal.querySelector('div'); container.innerHTML = `<div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1"><strong>Row ${index+1}</strong></div><div><button id="close_edit" class="secondary">Close</button></div></div>` + editorHtml;
+  // wire buttons
+  document.getElementById('close_edit').onclick = ()=> previewModal.style.display='none';
+  document.getElementById('cancelEdit').onclick = ()=> showPreview(lastParsedRows);
+  document.getElementById('applyBlock').onclick = ()=>{
+    const newBlock = { id: 'block_'+Date.now().toString(36), label: document.getElementById('ed_label').value, type: document.getElementById('ed_type').value, dur_minutes: Number(document.getElementById('ed_dur').value)||25, notes: document.getElementById('ed_notes').value || '' };
+    state.blocks.push(newBlock); saveState(); renderBlocks(); alert('Block added.'); previewModal.style.display='none';
+  };
+  document.getElementById('exportBlockJson').onclick = ()=>{
+    const exportBlock = { id:block.id, label:block.label, type:block.type, dur_minutes:block.dur_minutes, notes:block.notes||'' };
+    downloadJSON(exportBlock, `block_row_${index+1}.json`);
+  };
+}
+
+function normalizeRowToBlock(row, idx){ // heuristics to detect label, type, duration, notes
+  const lowerKeys = Object.keys(row).reduce((acc,k)=>{ acc[k.toLowerCase().trim()]=k; return acc; },{});
+  let label='Row '+(idx+1);
+  if(lowerKeys['label']) label=String(row[lowerKeys['label']]).trim(); else if(lowerKeys['activity']) label=String(row[lowerKeys['activity']]).trim(); else if(lowerKeys['task']) label=String(row[lowerKeys['task']]).trim();
+  let type='Study'; if(lowerKeys['type']){ const v=String(row[lowerKeys['type']]).toLowerCase(); if(v.includes('work')||v.includes('study')||v.includes('read')) type='Study'; else if(v.includes('fit')||v.includes('workout')||v.includes('cardio')||v.includes('tabata')||v.includes('yoga')) type='Workout'; else type = String(row[lowerKeys['type']]); }
+  // duration parsing
+  let dur=null; const durKeys=['duration','minutes','mins','time']; for(const k of durKeys) if(lowerKeys[k]){ dur = parseDuration(String(row[lowerKeys[k]])); if(dur!=null) break; }
+  if(dur==null){ // scan numeric cells
+    for(const k in row){ const n=Number(row[k]); if(!isNaN(n) && n>0 && n<2000){ dur = n>180? Math.round(n/60) : Math.round(n); break; } }
+  }
+  if(dur==null) dur=25; const notes = lowerKeys['notes']? String(row[lowerKeys['notes']]) : '';
+  return { id:'xl_'+(idx+1)+'_'+Date.now().toString(36).slice(-4), label:label||('Row '+(idx+1)), type:type, dur_minutes:Math.round(dur), notes:notes };
+}
+
+function parseDuration(s){ s=String(s).trim(); if(s==='') return null; if(s.indexOf(':')>=0){ const parts = s.split(':').map(x=>Number(x)); if(parts.length===2) return parts[0]*60 + parts[1]; if(parts.length===3) return parts[0]*3600 + parts[1]*60 + parts[2]; }
+  const digits = s.replace(/[^0-9.]/g,''); if(digits==='') return null; const num=Number(digits); if(isNaN(num)) return null; if(num>180) return Math.round(num/60); return Math.round(num);
+}
+
+// close preview
+document.getElementById('closePreview').onclick = ()=>{ previewModal.style.display='none'; previewModal.querySelector('div').innerHTML = `<div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1"><input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none"/></div><div style="flex:1"><div id="parsedCount" class="small">No file loaded</div></div><div><button id="closePreviewInner" class="secondary">Close</button></div></div><div style="max-height:55vh;overflow:auto"><table id="rowsTable"><thead><tr><th>#</th><th>Preview</th><th>Action</th></tr></thead><tbody></tbody></table></div>`; previewModal.style.display='none'; }
+
+// reopen file input wiring (re-wire after close)
+function rewireFileInput(){ const fi=previewModal.querySelector('#fileInput'); if(fi) fi.onchange = fileInput.onchange; }
+setInterval(rewireFileInput,1000);
+
+// export all
+document.getElementById('exportAll').onclick = ()=>{ const out = {blocks: state.blocks.map(b=>({label:b.label,type:b.type,duration:b.dur_minutes,notes:b.notes||''}))}; downloadJSON(out,'focusforge_blocks_export.json'); };
+
+// help modal
+const helpBtn=document.getElementById('helpBtn'); const helpModal=document.createElement('div'); helpModal.className='modal'; helpModal.innerHTML = `<h3>Help: Excel → Block Import</h3><p>Drop an Excel (.xlsx) file via the Import Excel button. The app will parse the first sheet and preview rows. For each row you can <strong>Convert</strong> it into a normalized block. Normalized fields (recommended): <code>label</code>, <code>type</code> (Study/Workout/Break), <code>duration</code> or <code>minutes</code> (numeric), <code>notes</code>.</p><p>Example JSON format for blocks:</p><pre>{"blocks":[{"label":"Study - Ch1","type":"Study","duration":25,"notes":"Read chapter 1"}]}</pre><div style="display:flex;gap:8px;margin-top:12px"><button id="closeHelpBtn" class="secondary">Close</button></div>`; document.body.appendChild(helpModal);
+helpBtn.onclick = ()=> helpModal.style.display='block'; document.getElementById('closeHelpBtn').onclick = ()=> helpModal.style.display='none';
+
+// ------------------ Tinker: philosopher avatar upload ------------------
+// allow user to click avatar to upload
+const phAv=document.getElementById('philoAvatar'); phAv.style.cursor='pointer'; phAv.title='Click to change philosopher avatar'; phAv.onclick = ()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const url=URL.createObjectURL(f); phAv.src=url; }; inp.click(); };
+
+// ------------------ small helpers ------------------
+// ensure audio context resume on gesture
+document.body.addEventListener('click', async ()=>{ if(aCtx.state==='suspended') await aCtx.resume(); },{once:true});
+
+</script>
+</body>
+</html>
